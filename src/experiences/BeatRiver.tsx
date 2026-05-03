@@ -185,8 +185,8 @@ export function BeatRiver({ beat, theme }: Props) {
           className="font-serif font-bold mb-4"
           style={{
             fontSize: "clamp(2.2rem, 7vw, 5rem)",
-            color: "#c94a4a",
-            filter: "drop-shadow(0 0 30px rgba(139,21,21,0.7))",
+            color: "#f0e8d8",
+            filter: "drop-shadow(0 0 30px rgba(139,21,21,0.9)) drop-shadow(0 0 60px rgba(139,21,21,0.5))",
           }}
         >
           {beat.headline}

@@ -33,12 +33,12 @@ export function BeatScene({ beat, theme }: Props) {
       onClick={handleClick}
       style={{ cursor: "pointer" }}
     >
-      {/* Dark content scrim so text always reads against any background */}
+      {/* Dark content scrim — strong enough to guarantee readability on any atmospheric bg */}
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
           background:
-            "radial-gradient(ellipse 85% 65% at 50% 52%, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.15) 70%, transparent 100%)",
+            "radial-gradient(ellipse 90% 70% at 50% 50%, rgba(0,0,0,0.78) 0%, rgba(0,0,0,0.40) 55%, rgba(0,0,0,0.10) 80%, transparent 100%)",
         }}
       />
       {/* Ripple pulses at click point */}
@@ -116,7 +116,7 @@ export function BeatScene({ beat, theme }: Props) {
                 opacity: { duration: 0.7, delay: i * 0.12 },
                 filter: { duration: 1.2, delay: i * 0.05 },
               }}
-              style={{ color: theme.color }}
+              style={{ color: "#f0e8d8" }}
             >
               {word}
             </motion.span>
@@ -133,8 +133,8 @@ export function BeatScene({ beat, theme }: Props) {
           transition={{ duration: 0.9, delay: 0.6 + i * 0.2, ease: "easeOut" }}
           className="relative z-10 font-sans font-light text-base md:text-xl max-w-2xl leading-relaxed"
           style={{
-            color: "rgba(238, 222, 206, 0.90)",
-            textShadow: "0 1px 8px rgba(0,0,0,0.9), 0 0 20px rgba(0,0,0,0.7)",
+            color: "rgba(255, 245, 225, 0.95)",
+            textShadow: "0 1px 12px rgba(0,0,0,1), 0 0 30px rgba(0,0,0,0.9), 0 2px 4px rgba(0,0,0,0.95)",
           }}
         >
           {sentence}{i < beat.sub!.split(". ").length - 1 ? "." : ""}

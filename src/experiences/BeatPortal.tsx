@@ -235,8 +235,8 @@ export function BeatPortal({ beat, realm, theme }: Props) {
           className="font-serif font-bold leading-tight"
           style={{
             fontSize: "clamp(3rem, 10vw, 8rem)",
-            color: theme.color,
-            filter: `drop-shadow(0 0 40px ${theme.glow})`,
+            color: "#f0e8d8",
+            filter: `drop-shadow(0 0 40px ${theme.glow}) drop-shadow(0 0 80px ${theme.glow})`,
           }}
         >
           {beat.headline}
@@ -250,8 +250,8 @@ export function BeatPortal({ beat, realm, theme }: Props) {
         transition={{ duration: 1, delay: 0.8 }}
         className="font-sans font-light text-base md:text-xl max-w-xl leading-relaxed mb-12 relative z-10"
         style={{
-          color: "rgba(238, 222, 206, 0.82)",
-          textShadow: "0 1px 10px rgba(0,0,0,0.85)",
+          color: "rgba(255, 245, 225, 0.95)",
+          textShadow: "0 1px 12px rgba(0,0,0,1), 0 0 24px rgba(0,0,0,0.9)",
         }}
       >
         {beat.sub}

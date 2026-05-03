@@ -70,8 +70,7 @@ interface Props {
 export function RealmSection({ realm, triggerBeat }: Props) {
   const containerRef  = useRef<HTMLDivElement>(null);
   const activeBeatRef = useRef(0);
-  const lastWheelTime = useRef(0);
-  const touchStartY   = useRef(0);
+  const elTopRef      = useRef(0);
   const triggerRef    = useRef(triggerBeat);
   useEffect(() => { triggerRef.current = triggerBeat; }, [triggerBeat]);
 
@@ -83,64 +82,62 @@ export function RealmSection({ realm, triggerBeat }: Props) {
 
   const beatProgress = useMotionValue(0);
 
+  // Keep ref + animated progress in sync with state
   useEffect(() => {
     activeBeatRef.current = activeBeat;
     const target = total > 1 ? activeBeat / (total - 1) : 0;
     fmAnimate(beatProgress, target, { duration: 1.0, ease: [0.16, 1, 0.3, 1] });
   }, [activeBeat, total, beatProgress]);
 
-  // Non-passive wheel handler — advance beats, fall through at boundaries
+  // Cache the element's document-relative top so the scroll handler is fast
+  const updateElTop = useCallback(() => {
+    if (!containerRef.current) return;
+    elTopRef.current =
+      containerRef.current.getBoundingClientRect().top + window.scrollY;
+  }, []);
+
+  // ─── Scroll-position-based beat navigation ───────────────────────────────
+  // Container is `total * 100vh` tall; each beat owns one viewport of scroll space.
+  // No wheel.preventDefault() needed — native scrolling drives everything.
   useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const onWheel = (e: WheelEvent) => {
-      const dir = e.deltaY > 6 ? 1 : e.deltaY < -6 ? -1 : 0;
-      if (!dir) return;
-      const cur = activeBeatRef.current;
+    updateElTop();
+    window.addEventListener("resize", updateElTop);
 
-      const atForwardBoundary  = dir ===  1 && cur >= total - 1;
-      const atBackwardBoundary = dir === -1 && cur <= 0;
-      if (!atForwardBoundary && !atBackwardBoundary) {
-        e.preventDefault();
-      }
+    const handleScroll = () => {
+      if (total <= 1) return;
+      const vh      = window.innerHeight;
+      const scrolled = window.scrollY - elTopRef.current;
+      const maxRange = (total - 1) * vh;
 
-      const now = Date.now();
-      if (now - lastWheelTime.current < 820) return;
+      // Outside this realm's scroll zone — do nothing
+      if (scrolled < 0 || scrolled > maxRange + vh) return;
 
-      if (dir === 1 && cur < total - 1) {
-        lastWheelTime.current = now;
-        setTransDir(1);
-        setActiveBeat(cur + 1);
-        triggerRef.current(realm.beats[cur + 1].type, realm.theme);
-      } else if (dir === -1 && cur > 0) {
-        lastWheelTime.current = now;
-        setTransDir(-1);
-        setActiveBeat(cur - 1);
-        triggerRef.current(realm.beats[cur - 1].type, realm.theme);
+      const clamped = Math.max(0, Math.min(scrolled, maxRange));
+      const newBeat = Math.min(total - 1, Math.floor(clamped / vh));
+
+      const prev = activeBeatRef.current;
+      if (newBeat !== prev) {
+        setTransDir(newBeat > prev ? 1 : -1);
+        setActiveBeat(newBeat);
+        triggerRef.current(realm.beats[newBeat].type, realm.theme);
       }
     };
-    el.addEventListener("wheel", onWheel, { passive: false });
-    return () => el.removeEventListener("wheel", onWheel);
-  }, [total, realm.beats, realm.theme]);
 
-  const onTouchStart = (e: React.TouchEvent) => {
-    touchStartY.current = e.touches[0].clientY;
-  };
-  const onTouchEnd = useCallback((e: React.TouchEvent) => {
-    const dy  = touchStartY.current - e.changedTouches[0].clientY;
-    if (Math.abs(dy) < 55) return;
-    const dir = dy > 0 ? 1 : -1;
-    const cur = activeBeatRef.current;
-    if (dir === 1 && cur < total - 1) {
-      setTransDir(1);
-      setActiveBeat(cur + 1);
-      triggerRef.current(realm.beats[cur + 1].type, realm.theme);
-    } else if (dir === -1 && cur > 0) {
-      setTransDir(-1);
-      setActiveBeat(cur - 1);
-      triggerRef.current(realm.beats[cur - 1].type, realm.theme);
-    }
-  }, [total, realm.beats, realm.theme]);
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    // Run once on mount so the correct beat is shown on page refresh
+    handleScroll();
+
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("resize", updateElTop);
+    };
+  }, [total, realm.beats, realm.theme, updateElTop]);
+
+  // Smooth-scroll to a beat when a progress dot is clicked
+  const scrollToBeat = useCallback((beatIdx: number) => {
+    const vh = window.innerHeight;
+    window.scrollTo({ top: elTopRef.current + beatIdx * vh, behavior: "smooth" });
+  }, []);
 
   const beat    = realm.beats[Math.min(activeBeat, total - 1)];
   if (!beat) return null;
@@ -152,10 +149,10 @@ export function RealmSection({ realm, triggerBeat }: Props) {
     <div
       ref={containerRef}
       id={`realm-${realm.id}`}
-      className="relative h-screen w-full"
-      onTouchStart={onTouchStart}
-      onTouchEnd={onTouchEnd}
+      className="relative w-full"
+      style={{ height: `${total * 100}vh` }}
     >
+      {/* Sticky viewport — stays fixed while user scrolls through this realm */}
       <div className="sticky top-0 h-screen w-full overflow-hidden">
 
         <div className="absolute inset-0 bg-background" />
@@ -209,18 +206,12 @@ export function RealmSection({ realm, triggerBeat }: Props) {
           </motion.div>
         </AnimatePresence>
 
-        {/* Progress dots — clickable */}
+        {/* Progress dots — click scrolls to that beat */}
         <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex gap-3 z-30">
           {realm.beats.map((b, i) => (
             <motion.button
               key={i}
-              onClick={() => {
-                if (i === activeBeat) return;
-                const dir = i > activeBeat ? 1 : -1;
-                setTransDir(dir);
-                setActiveBeat(i);
-                triggerBeat(b.type, realm.theme);
-              }}
+              onClick={() => scrollToBeat(i)}
               animate={{
                 scale:   i === activeBeat ? 1.5 : 1,
                 opacity: i === activeBeat ? 1   : 0.3,
@@ -228,11 +219,12 @@ export function RealmSection({ realm, triggerBeat }: Props) {
               transition={{ duration: 0.3 }}
               className="w-1.5 h-1.5 rounded-full"
               style={{ background: theme.color, cursor: "pointer" }}
+              aria-label={`Go to beat ${i + 1}: ${b.type}`}
             />
           ))}
         </div>
 
-        {/* Advance cue */}
+        {/* Entry / exit cues */}
         <AnimatePresence mode="wait">
           {isFirst && (
             <motion.div
@@ -244,7 +236,7 @@ export function RealmSection({ realm, triggerBeat }: Props) {
               className="absolute bottom-16 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 z-30 pointer-events-none"
             >
               <span className="font-sans text-[10px] tracking-[0.4em] uppercase" style={{ color: theme.color + "65" }}>
-                Scroll · swipe to enter
+                Scroll to enter
               </span>
               <motion.div
                 animate={{ y: [0, 8, 0] }}
