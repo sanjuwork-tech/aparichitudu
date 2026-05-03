@@ -105,7 +105,7 @@ export function RealmSection({ realm, triggerBeat }: Props) {
 
     const handleScroll = () => {
       if (total <= 1) return;
-      const vh      = window.innerHeight;
+      const vh       = window.innerHeight;
       const scrolled = window.scrollY - elTopRef.current;
       const maxRange = (total - 1) * vh;
 
@@ -123,13 +123,43 @@ export function RealmSection({ realm, triggerBeat }: Props) {
       }
     };
 
-    window.addEventListener("scroll", handleScroll, { passive: true });
+    // ─── Keyboard navigation ─────────────────────────────────────────────
+    // Only acts when the user's scroll position is inside this realm's zone.
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if focus is inside a text input / textarea
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+
+      const vh       = window.innerHeight;
+      const scrolled = window.scrollY - elTopRef.current;
+      const maxRange = (total - 1) * vh;
+
+      // Not within this realm's scroll zone
+      if (scrolled < -vh * 0.5 || scrolled > maxRange + vh * 0.5) return;
+
+      const FORWARD  = ["ArrowDown", "ArrowRight", " ", "PageDown"];
+      const BACKWARD = ["ArrowUp",   "ArrowLeft",        "PageUp"  ];
+
+      if (FORWARD.includes(e.key)) {
+        e.preventDefault();
+        const next = Math.min(activeBeatRef.current + 1, total - 1);
+        window.scrollTo({ top: elTopRef.current + next * vh, behavior: "smooth" });
+      } else if (BACKWARD.includes(e.key)) {
+        e.preventDefault();
+        const prev = Math.max(activeBeatRef.current - 1, 0);
+        window.scrollTo({ top: elTopRef.current + prev * vh, behavior: "smooth" });
+      }
+    };
+
+    window.addEventListener("scroll",  handleScroll,  { passive: true });
+    window.addEventListener("keydown", handleKeyDown);
     // Run once on mount so the correct beat is shown on page refresh
     handleScroll();
 
     return () => {
-      window.removeEventListener("scroll", handleScroll);
-      window.removeEventListener("resize", updateElTop);
+      window.removeEventListener("scroll",  handleScroll);
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("resize",  updateElTop);
     };
   }, [total, realm.beats, realm.theme, updateElTop]);
 
